@@ -11,6 +11,7 @@ export function CartDrawer() {
     items,
     count,
     subtotal,
+    currencyCode,
     isOpen,
     closeCart,
     removeItem,
@@ -130,7 +131,9 @@ export function CartDrawer() {
           <div className="border-t border-border px-5 py-5 space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="text-fg-muted">Subtotal</span>
-              <span className="font-medium">{formatMoney(subtotal)}</span>
+              <span className="font-medium">
+                {formatMoney(subtotal, currencyCode)}
+              </span>
             </div>
             <CheckoutButton
               label="Checkout"

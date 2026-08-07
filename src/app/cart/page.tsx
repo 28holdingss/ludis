@@ -7,7 +7,8 @@ import { CheckoutButton } from "@/components/CheckoutButton";
 import { formatMoney } from "@/lib/format";
 
 export default function CartPage() {
-  const { items, subtotal, removeItem, updateQuantity, count } = useCart();
+  const { items, subtotal, currencyCode, removeItem, updateQuantity, count } =
+    useCart();
 
   return (
     <div className="pt-20">
@@ -100,7 +101,9 @@ export default function CartPage() {
             <div className="mt-8 space-y-4">
               <div className="flex justify-between text-base">
                 <span className="text-fg-muted">Subtotal</span>
-                <span className="font-medium">{formatMoney(subtotal)}</span>
+                <span className="font-medium">
+                  {formatMoney(subtotal, currencyCode)}
+                </span>
               </div>
               <p className="text-sm text-fg-muted">
                 You&apos;ll complete payment securely on Shopify. Tapstitch

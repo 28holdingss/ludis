@@ -22,6 +22,7 @@ type CartContextValue = {
   items: LocalCartItem[];
   count: number;
   subtotal: number;
+  currencyCode: string;
   isOpen: boolean;
   openCart: () => void;
   closeCart: () => void;
@@ -117,10 +118,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       (sum, i) => sum + parseFloat(i.variant.price.amount) * i.quantity,
       0,
     );
+    const currencyCode = items[0]?.variant.price.currencyCode || "USD";
     return {
       items,
       count,
       subtotal,
+      currencyCode,
       isOpen,
       openCart: () => setIsOpen(true),
       closeCart: () => setIsOpen(false),

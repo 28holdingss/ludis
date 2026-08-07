@@ -4,7 +4,7 @@ const img = (id: string, w = 1200, h = 1500) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&h=${h}&q=80`;
 
 function money(amount: string): { amount: string; currencyCode: string } {
-  return { amount, currencyCode: "GBP" };
+  return { amount, currencyCode: "USD" };
 }
 
 function sizes(productId: string, basePrice: string): Product["variants"] {
