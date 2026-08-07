@@ -1,33 +1,33 @@
-import Link from "next/link";
+import Image from "next/image";
 import { Hero } from "@/components/Hero";
 import { CategorySplit } from "@/components/CategorySplit";
-import { CollectionGrid } from "@/components/CollectionGrid";
 import { ProductGrid } from "@/components/ProductGrid";
-import {
-  getCatalogSections,
-  isShopifyConfigured,
-} from "@/lib/shopify/client";
+import { getCatalogSections } from "@/lib/shopify/client";
 
 export default async function Home() {
-  const { bestsellers, newest, more } = await getCatalogSections();
-  const live = isShopifyConfigured();
+  const { wears, bestsellers, newest, more } = await getCatalogSections();
 
   return (
     <>
       <Hero />
-      <CollectionGrid />
+      <ProductGrid
+        products={wears}
+        title="Ludis Aqtive Wears"
+        subtitle="Performance sportswear built for training and everyday movement."
+        href="/shop?collection=ludis-aqtive-wears"
+        linkLabel="Shop wears"
+      />
       <ProductGrid
         products={bestsellers}
         title="Bestsellers"
         subtitle="The pieces everyone keeps coming back for."
-        href="/shop"
-        linkLabel="Shop all"
+        linkLabel="Shop bestsellers"
       />
       <ProductGrid
         products={newest}
         title="New Drops"
         subtitle="Fresh from the floor — just landed."
-        href="/shop?collection=new"
+        href="/shop?collection=new-drops"
         linkLabel="View new"
       />
       <CategorySplit />
@@ -36,37 +36,27 @@ export default async function Home() {
           products={more}
           title="More to Explore"
           subtitle="Keep building the kit."
-          href="/shop"
-          linkLabel="Shop all"
+          href="/shop?collection=more-to-explore"
+          linkLabel="Explore more"
         />
       )}
-      <section className="mx-auto max-w-[1440px] px-4 py-20 sm:px-6 lg:px-10 lg:py-28">
-        <div className="grid gap-10 lg:grid-cols-[1.2fr_1fr] lg:items-end">
-          <h2 className="font-display text-[clamp(2.5rem,7vw,5.5rem)] leading-[0.92] tracking-[0.02em]">
+      <section className="relative min-h-[70vh] w-full overflow-hidden">
+        <Image
+          src="/images/banner.png"
+          alt="Ludis Aqtive athletes"
+          fill
+          className="object-cover object-[center_30%]"
+          sizes="100vw"
+        />
+        <div className="absolute inset-0 bg-black/40" />
+        <div className="relative mx-auto flex min-h-[70vh] max-w-[1440px] items-end px-4 py-16 sm:px-6 lg:items-center lg:px-10 lg:py-24">
+          <h2 className="font-display text-[clamp(2.5rem,7vw,5.5rem)] leading-[0.92] tracking-[0.02em] text-white">
             Engineered
             <br />
             for the
             <br />
-            <span className="text-fg">grind</span>
+            grind
           </h2>
-          <div className="space-y-6">
-            <p className="max-w-md text-base leading-relaxed text-fg-muted">
-              From seamless leggings to heavyweight hoodies — every Ludis Aqtive
-              piece is cut for movement, recovery, and the life between sets.
-            </p>
-            <Link
-              href="/shop"
-              className="inline-flex h-12 items-center bg-fg px-7 text-[11px] font-bold tracking-[0.2em] uppercase text-bg hover:bg-neutral-800 transition-colors"
-            >
-              Shop All
-            </Link>
-            {!live && (
-              <p className="text-xs text-fg-muted/80">
-                Showing preview products. Connect Shopify Storefront API to load
-                your Tapstitch catalog.
-              </p>
-            )}
-          </div>
         </div>
       </section>
     </>

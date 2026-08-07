@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
+import { CheckoutButton } from "@/components/CheckoutButton";
 import { formatMoney } from "@/lib/format";
 
 export default function CartPage() {
@@ -20,7 +21,7 @@ export default function CartPage() {
             <p className="text-fg-muted">Nothing in your bag yet.</p>
             <Link
               href="/shop"
-              className="mt-6 inline-flex h-12 items-center bg-accent px-7 text-[11px] font-bold tracking-[0.2em] uppercase text-accent-ink"
+              className="mt-6 inline-flex h-12 items-center bg-fg px-7 text-[11px] font-bold tracking-[0.2em] uppercase text-bg"
             >
               Continue Shopping
             </Link>
@@ -44,7 +45,7 @@ export default function CartPage() {
                   <div className="flex flex-1 flex-col">
                     <Link
                       href={`/shop/${item.product.handle}`}
-                      className="font-medium hover:text-accent"
+                      className="font-medium hover:underline"
                     >
                       {item.product.title}
                     </Link>
@@ -102,16 +103,10 @@ export default function CartPage() {
                 <span className="font-medium">{formatMoney(subtotal)}</span>
               </div>
               <p className="text-sm text-fg-muted">
-                After you add your Shopify Storefront token, checkout will
-                redirect to Shopify — Tapstitch will fulfill as usual.
+                You&apos;ll complete payment securely on Shopify. Tapstitch
+                fulfills the order as usual.
               </p>
-              <button
-                type="button"
-                disabled
-                className="flex h-14 w-full items-center justify-center bg-fg text-[12px] font-bold tracking-[0.22em] uppercase text-bg opacity-50"
-              >
-                Checkout (connect Shopify)
-              </button>
+              <CheckoutButton label="Checkout" />
             </div>
           </>
         )}

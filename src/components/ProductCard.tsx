@@ -9,7 +9,11 @@ export function ProductCard({ product }: { product: Product }) {
   const isNew = product.tags.includes("new");
 
   return (
-    <Link href={`/shop/${product.handle}`} className="group block">
+    <Link
+      href={`/shop/${product.handle}`}
+      prefetch={false}
+      className="group block"
+    >
       <div className="relative aspect-[4/5] overflow-hidden bg-white p-4">
         {image && (
           <div className="relative h-full w-full">

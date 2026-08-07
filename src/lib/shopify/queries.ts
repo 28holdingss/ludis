@@ -211,8 +211,8 @@ export const COLLECTION_BY_HANDLE_QUERY = `
 `;
 
 export const CREATE_CART_MUTATION = `
-  mutation CreateCart($lines: [CartLineInput!]) {
-    cartCreate(input: { lines: $lines }) {
+  mutation CreateCart($lines: [CartLineInput!]!, $buyerIdentity: CartBuyerIdentityInput) {
+    cartCreate(input: { lines: $lines, buyerIdentity: $buyerIdentity }) {
       cart {
         id
         checkoutUrl

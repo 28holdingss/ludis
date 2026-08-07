@@ -20,17 +20,17 @@ export function Footer() {
           </p>
           <ul className="mt-4 space-y-2 text-sm text-fg-muted">
             <li>
-              <Link href="/shop?collection=women" className="hover:text-fg">
+              <Link href="/shop?collection=shop-women" className="hover:text-fg">
                 Women
               </Link>
             </li>
             <li>
-              <Link href="/shop?collection=men" className="hover:text-fg">
+              <Link href="/shop?collection=shop-men" className="hover:text-fg">
                 Men
               </Link>
             </li>
             <li>
-              <Link href="/shop?collection=new" className="hover:text-fg">
+              <Link href="/shop?collection=new-drops" className="hover:text-fg">
                 New Drops
               </Link>
             </li>

@@ -5,12 +5,10 @@ import type { Product } from "@/lib/shopify/types";
 
 export function ProductGallery({ product }: { product: Product }) {
   const seen = new Set<string>();
+  // Featured first so the main Shopify image wins over leftover media.
   const images = [
-    ...(product.images.length > 0
-      ? product.images
-      : product.featuredImage
-        ? [product.featuredImage]
-        : []),
+    ...(product.featuredImage ? [product.featuredImage] : []),
+    ...product.images,
   ].filter((img) => {
     if (seen.has(img.url)) return false;
     seen.add(img.url);
@@ -18,20 +16,18 @@ export function ProductGallery({ product }: { product: Product }) {
   });
 
   if (images.length === 0) {
-    return <div className="h-64 max-w-sm rounded-md bg-bg-muted" />;
+    return <div className="h-64 max-w-sm bg-white" />;
   }
 
   return (
     <div
+      key={product.id}
       className={`w-full max-w-lg ${
         images.length === 1 ? "grid grid-cols-1" : "grid grid-cols-2 gap-3"
       }`}
     >
       {images.slice(0, 4).map((img, i) => (
-        <div
-          key={img.url + i}
-          className="overflow-hidden rounded-md bg-bg-elevated"
-        >
+        <div key={`${product.id}-${img.url}`} className="overflow-hidden bg-white">
           <Image
             src={img.url}
             alt={img.altText || `${product.title} ${i + 1}`}

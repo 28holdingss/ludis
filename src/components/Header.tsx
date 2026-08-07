@@ -6,9 +6,9 @@ import { usePathname } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 
 const NAV = [
-  { href: "/shop?collection=women", label: "Women" },
-  { href: "/shop?collection=men", label: "Men" },
-  { href: "/shop?collection=new", label: "Accessories" },
+  { href: "/shop?collection=shop-women", label: "Women" },
+  { href: "/shop?collection=shop-men", label: "Men" },
+  { href: "/shop?collection=new-drops", label: "New" },
   { href: "/shop", label: "Explore" },
 ];
 

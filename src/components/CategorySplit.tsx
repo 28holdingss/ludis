@@ -3,18 +3,18 @@ import Image from "next/image";
 
 const categories = [
   {
-    href: "/shop?collection=women",
+    href: "/shop?collection=shop-women",
     label: "Women",
     copy: "Sculpt. Stretch. Dominate.",
-    image: "/shop-women.png",
-    position: "object-[70%_center]",
+    image: "/images/women.png",
+    position: "object-center",
   },
   {
-    href: "/shop?collection=men",
+    href: "/shop?collection=shop-men",
     label: "Men",
     copy: "Built for the heavy sets.",
-    image: "/shop-men.png",
-    position: "object-center",
+    image: "/images/men.png",
+    position: "object-[center_20%]",
   },
 ];
 

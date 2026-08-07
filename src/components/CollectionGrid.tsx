@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { getProducts } from "@/lib/shopify/client";
-import type { Product } from "@/lib/shopify/types";
+import type { Product, ProductImage } from "@/lib/shopify/types";
 
 export type CollectionDef = {
   slug: string;
@@ -58,7 +58,22 @@ export const COLLECTIONS: CollectionDef[] = [
   {
     slug: "sportswear",
     label: "Sportswear",
-    keywords: ["sport", "active", "training", "athletic", "skirt"],
+    keywords: [
+      "sport",
+      "active",
+      "training",
+      "athletic",
+      "skirt",
+      "legging",
+      "bra",
+      "jogger",
+      "performance",
+      "seamless",
+      "gym",
+      "workout",
+      "tank",
+      "shorts",
+    ],
   },
 ];
 
@@ -87,22 +102,76 @@ export function getCollectionBySlug(slug: string) {
   return COLLECTIONS.find((c) => c.slug === slug);
 }
 
+function productImages(product: Product) {
+  const seen = new Set<string>();
+  const list = [
+    ...(product.images ?? []),
+    ...(product.featuredImage ? [product.featuredImage] : []),
+  ].filter((img) => {
+    if (!img?.url || seen.has(img.url)) return false;
+    seen.add(img.url);
+    return true;
+  });
+  return list;
+}
+
+/** Prefer flat / product-only shots over lifestyle model photos. */
+function scorePackshot(img: ProductImage, index: number) {
+  const haystack = `${img.altText ?? ""} ${img.url}`.toLowerCase();
+  let score = 0;
+
+  if (
+    /flat|packshot|pack.?shot|ghost|isolated|cutout|still.?life|product.?shot|no.?model/.test(
+      haystack,
+    )
+  ) {
+    score += 12;
+  }
+  if (/lifestyle|model|worn|on.?body|on.?model|campaign|lookbook|editorial/.test(haystack)) {
+    score -= 12;
+  }
+  // Featured/first image is often a model shot for apparel
+  if (index === 0) score -= 2;
+  if (index >= 1) score += 3;
+
+  return score;
+}
+
 function pickProduct(
   products: Product[],
   collection: CollectionDef,
-): Product | undefined {
-  return products.find(
-    (p) => matchCollection(p, collection) && p.featuredImage?.url,
-  );
+): { product: Product; imageUrl: string } | undefined {
+  const matches = products.filter((p) => matchCollection(p, collection));
+  if (matches.length === 0) return undefined;
+
+  let best:
+    | { product: Product; imageUrl: string; score: number }
+    | undefined;
+
+  for (const product of matches) {
+    const images = productImages(product);
+    for (let i = 0; i < images.length; i++) {
+      const score = scorePackshot(images[i], i);
+      const imageUrl = images[i].url;
+      if (!best || score > best.score) {
+        best = { product, imageUrl, score };
+      }
+    }
+  }
+
+  if (!best) return undefined;
+  return { product: best.product, imageUrl: best.imageUrl };
 }
 
 export async function CollectionGrid() {
-  const products = await getProducts(50);
+  const products = await getProducts(100);
 
   const cards = COLLECTIONS.map((collection) => {
-    const product = pickProduct(products, collection);
-    return { collection, product };
-  }).filter((c) => c.product);
+    const picked = pickProduct(products, collection);
+    return picked
+      ? { collection, product: picked.product, imageUrl: picked.imageUrl }
+      : null;
+  }).filter((c): c is NonNullable<typeof c> => Boolean(c));
 
   if (cards.length === 0) return null;
 
@@ -118,7 +187,7 @@ export async function CollectionGrid() {
       </div>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-5 md:gap-x-5 md:gap-y-10">
-        {cards.map(({ collection, product }) => (
+        {cards.map(({ collection, imageUrl }) => (
           <Link
             key={collection.slug}
             href={`/shop?type=${collection.slug}`}
@@ -127,7 +196,7 @@ export async function CollectionGrid() {
             <div className="relative aspect-[3/4] w-full overflow-hidden bg-white p-3">
               <div className="relative h-full w-full">
                 <Image
-                  src={product!.featuredImage!.url}
+                  src={imageUrl}
                   alt={collection.label}
                   fill
                   className="object-contain transition-transform duration-500 group-hover:scale-[1.03]"

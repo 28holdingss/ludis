@@ -12,6 +12,14 @@ const domain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN;
 const storefrontToken = process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_TOKEN;
 const apiVersion = process.env.NEXT_PUBLIC_SHOPIFY_API_VERSION || "2025-01";
 
+/** Market used for inventory/shipping at checkout (ISO country). GH has no Tapstitch stock. */
+export function getCheckoutCountryCode() {
+  const raw = (
+    process.env.NEXT_PUBLIC_SHOPIFY_CHECKOUT_COUNTRY || "US"
+  ).toUpperCase();
+  return /^[A-Z]{2}$/.test(raw) ? raw : "US";
+}
+
 export function isShopifyConfigured() {
   return Boolean(domain && storefrontToken);
 }
@@ -62,6 +70,7 @@ function normalizeProduct(node: ShopifyProductNode): Product {
 async function storefrontFetch<T>(
   query: string,
   variables: Record<string, unknown> = {},
+  options: { cache?: RequestCache } = {},
 ): Promise<T | null> {
   if (!isShopifyConfigured()) return null;
 
@@ -74,7 +83,10 @@ async function storefrontFetch<T>(
         "X-Shopify-Storefront-Access-Token": storefrontToken!,
       },
       body: JSON.stringify({ query, variables }),
-      next: { revalidate: 60 },
+      ...(options.cache
+        ? { cache: options.cache }
+        : // Short TTL so catalog/media updates show up without a hard refresh.
+          { next: { revalidate: 15 } }),
     },
   );
 
@@ -104,9 +116,12 @@ export async function getProducts(first = 100): Promise<Product[]> {
 export async function getProductByHandle(
   handle: string,
 ): Promise<Product | null> {
+  // Always fresh — cached product payloads keep deleted Shopify images around
+  // on client navigations until a hard refresh.
   const data = await storefrontFetch<{ product: ShopifyProductNode | null }>(
     PRODUCT_BY_HANDLE_QUERY,
     { handle },
+    { cache: "no-store" },
   );
 
   if (data?.product) return normalizeProduct(data.product);
@@ -158,6 +173,40 @@ function matchesTagOrTitle(product: Product, words: string[]) {
 export async function getCatalogSections() {
   const products = await getProducts(100);
 
+  const wearsCollection = await getCollectionByHandle("ludis-aqtive-wears");
+  const newDropsCollection = await getCollectionByHandle("new-drops");
+  const bestsellersCollection = await getCollectionByHandle("bestsellers");
+  const moreCollection = await getCollectionByHandle("more-to-explore");
+  const sportswearKeywords = [
+    "sport",
+    "active",
+    "training",
+    "athletic",
+    "skirt",
+    "legging",
+    "bra",
+    "jogger",
+    "performance",
+    "seamless",
+    "gym",
+    "workout",
+    "tank",
+    "short",
+  ];
+
+  const sportswearMatches = products.filter((p) =>
+    matchesTagOrTitle(p, sportswearKeywords),
+  );
+
+  const wears =
+    wearsCollection && wearsCollection.products.length > 0
+      ? wearsCollection.products.slice(0, 12)
+      : sportswearMatches.length >= 4
+        ? sportswearMatches.slice(0, 8)
+        : products.slice(0, 8);
+
+  const wearIds = new Set(wears.map((p) => p.id));
+
   const taggedBestsellers = products.filter((p) =>
     matchesTagOrTitle(p, ["bestseller", "best seller", "best-selling"]),
   );
@@ -166,21 +215,30 @@ export async function getCatalogSections() {
   );
 
   const bestsellers =
-    taggedBestsellers.length >= 4
-      ? taggedBestsellers.slice(0, 8)
-      : products.slice(0, 8);
-
-  const bestsellerIds = new Set(bestsellers.map((p) => p.id));
+    bestsellersCollection && bestsellersCollection.products.length > 0
+      ? bestsellersCollection.products.slice(0, 12)
+      : taggedBestsellers.filter((p) => !wearIds.has(p.id)).length >= 4
+        ? taggedBestsellers.filter((p) => !wearIds.has(p.id)).slice(0, 8)
+        : products.filter((p) => !wearIds.has(p.id)).slice(0, 8);
 
   const newest =
-    taggedNew.filter((p) => !bestsellerIds.has(p.id)).length >= 4
-      ? taggedNew.filter((p) => !bestsellerIds.has(p.id)).slice(0, 8)
-      : products.filter((p) => !bestsellerIds.has(p.id)).slice(-8).reverse();
+    newDropsCollection && newDropsCollection.products.length > 0
+      ? newDropsCollection.products.slice(0, 12)
+      : taggedNew.filter((p) => !wearIds.has(p.id)).length >= 4
+        ? taggedNew.filter((p) => !wearIds.has(p.id)).slice(0, 8)
+        : products.filter((p) => !wearIds.has(p.id)).slice(-8).reverse();
 
-  const used = new Set([...bestsellers, ...newest].map((p) => p.id));
-  const more = products.filter((p) => !used.has(p.id)).slice(0, 8);
+  const more =
+    moreCollection && moreCollection.products.length > 0
+      ? moreCollection.products.slice(0, 12)
+      : products
+          .filter(
+            (p) =>
+              ![...wears, ...bestsellers, ...newest].some((x) => x.id === p.id),
+          )
+          .slice(0, 8);
 
-  return { bestsellers, newest, more, all: products };
+  return { wears, bestsellers, newest, more, all: products };
 }
 
 export async function getFeaturedProducts(): Promise<Product[]> {
@@ -218,27 +276,161 @@ export async function createCart(
   variantId: string,
   quantity = 1,
 ): Promise<Cart | null> {
-  if (!isShopifyConfigured()) {
+  const result = await createCheckoutCart([
+    { merchandiseId: variantId, quantity },
+  ]);
+  return result.cart;
+}
+
+export type CheckoutCartResult = {
+  cart: Cart | null;
+  userErrors: { field?: string[]; message: string }[];
+  invalidMerchandiseIds: string[];
+};
+
+export async function createCheckoutCart(
+  lines: { merchandiseId: string; quantity: number }[],
+): Promise<CheckoutCartResult> {
+  const empty: CheckoutCartResult = {
+    cart: null,
+    userErrors: [],
+    invalidMerchandiseIds: [],
+  };
+
+  if (!isShopifyConfigured()) return empty;
+  if (lines.length === 0) return empty;
+
+  // Drop preview/mock variant IDs
+  const validLines = lines.filter(
+    (line) =>
+      /^gid:\/\/shopify\/ProductVariant\/\d+$/.test(line.merchandiseId) &&
+      line.quantity > 0,
+  );
+
+  if (validLines.length === 0) {
     return {
-      id: "local-cart",
-      checkoutUrl: "#",
-      totalQuantity: quantity,
-      cost: {
-        subtotalAmount: { amount: "0", currencyCode: "GBP" },
-        totalAmount: { amount: "0", currencyCode: "GBP" },
-      },
-      lines: [],
+      ...empty,
+      userErrors: [
+        {
+          message:
+            "Your bag has outdated items. Remove them and add products again.",
+        },
+      ],
+      invalidMerchandiseIds: lines.map((l) => l.merchandiseId),
     };
   }
 
-  const data = await storefrontFetch<{
-    cartCreate: { cart: CartPayload; userErrors: { message: string }[] };
-  }>(CREATE_CART_MUTATION, {
-    lines: [{ merchandiseId: variantId, quantity }],
-  });
+  async function attempt(
+    attemptLines: { merchandiseId: string; quantity: number }[],
+  ): Promise<CheckoutCartResult> {
+    const data = await storefrontFetch<{
+      cartCreate: {
+        cart: CartPayload | null;
+        userErrors: { field?: string[]; message: string }[];
+      };
+    }>(
+      CREATE_CART_MUTATION,
+      {
+        lines: attemptLines,
+        buyerIdentity: { countryCode: getCheckoutCountryCode() },
+      },
+      { cache: "no-store" },
+    );
 
-  if (!data?.cartCreate.cart) return null;
-  return normalizeCart(data.cartCreate.cart);
+    if (!data?.cartCreate) {
+      return {
+        cart: null,
+        userErrors: [{ message: "Shopify did not return a cart response." }],
+        invalidMerchandiseIds: [],
+      };
+    }
+
+    const userErrors = data.cartCreate.userErrors ?? [];
+    const invalidMerchandiseIds = attemptLines
+      .filter((line) =>
+        userErrors.some(
+          (err) =>
+            err.message.toLowerCase().includes("does not exist") &&
+            err.message.includes(line.merchandiseId),
+        ),
+      )
+      .map((line) => line.merchandiseId);
+
+    // Also catch index-based errors: lines.N.merchandiseId
+    for (const err of userErrors) {
+      const path = err.field ?? [];
+      const linesIdx = path.indexOf("lines");
+      if (
+        linesIdx >= 0 &&
+        err.message.toLowerCase().includes("does not exist") &&
+        path[linesIdx + 1] != null
+      ) {
+        const i = Number(path[linesIdx + 1]);
+        if (Number.isFinite(i) && attemptLines[i]) {
+          invalidMerchandiseIds.push(attemptLines[i].merchandiseId);
+        }
+      }
+    }
+
+    const uniqueInvalid = [...new Set(invalidMerchandiseIds)];
+
+    if (data.cartCreate.cart?.checkoutUrl) {
+      return {
+        cart: normalizeCart(data.cartCreate.cart),
+        userErrors,
+        invalidMerchandiseIds: uniqueInvalid,
+      };
+    }
+
+    return {
+      cart: null,
+      userErrors,
+      invalidMerchandiseIds: uniqueInvalid,
+    };
+  }
+
+  let result = await attempt(validLines);
+
+  if (!result.cart && result.invalidMerchandiseIds.length > 0) {
+    const retryLines = validLines.filter(
+      (line) => !result.invalidMerchandiseIds.includes(line.merchandiseId),
+    );
+    if (retryLines.length > 0) {
+      const retry = await attempt(retryLines);
+      return {
+        ...retry,
+        invalidMerchandiseIds: [
+          ...new Set([
+            ...result.invalidMerchandiseIds,
+            ...retry.invalidMerchandiseIds,
+          ]),
+        ],
+      };
+    }
+  }
+
+  return result;
+}
+
+/** Online Store cart permalink — pin country so IP market (e.g. GH) doesn’t zero stock. */
+export function buildCartPermalink(
+  lines: { merchandiseId: string; quantity: number }[],
+): string | null {
+  if (!domain || lines.length === 0) return null;
+
+  const parts = lines
+    .map((line) => {
+      const match = line.merchandiseId.match(
+        /^gid:\/\/shopify\/ProductVariant\/(\d+)$/,
+      );
+      if (!match) return null;
+      return `${match[1]}:${Math.max(1, Math.floor(line.quantity))}`;
+    })
+    .filter((part): part is string => Boolean(part));
+
+  if (parts.length === 0) return null;
+  const country = getCheckoutCountryCode();
+  return `https://${domain}/cart/${parts.join(",")}?country=${country}`;
 }
 
 export async function addToCart(
@@ -252,10 +444,14 @@ export async function addToCart(
 
   const data = await storefrontFetch<{
     cartLinesAdd: { cart: CartPayload; userErrors: { message: string }[] };
-  }>(ADD_TO_CART_MUTATION, {
-    cartId,
-    lines: [{ merchandiseId: variantId, quantity }],
-  });
+  }>(
+    ADD_TO_CART_MUTATION,
+    {
+      cartId,
+      lines: [{ merchandiseId: variantId, quantity }],
+    },
+    { cache: "no-store" },
+  );
 
   if (!data?.cartLinesAdd.cart) return null;
   return normalizeCart(data.cartLinesAdd.cart);

@@ -31,6 +31,7 @@ type CartContextValue = {
     quantity?: number,
   ) => void;
   removeItem: (key: string) => void;
+  removeItemsByVariantIds: (variantIds: string[]) => void;
   updateQuantity: (key: string, quantity: number) => void;
   clearCart: () => void;
 };
@@ -92,6 +93,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => prev.filter((i) => i.key !== key));
   }, []);
 
+  const removeItemsByVariantIds = useCallback((variantIds: string[]) => {
+    if (variantIds.length === 0) return;
+    const drop = new Set(variantIds);
+    setItems((prev) => prev.filter((i) => !drop.has(i.variant.id)));
+  }, []);
+
   const updateQuantity = useCallback((key: string, quantity: number) => {
     if (quantity <= 0) {
       setItems((prev) => prev.filter((i) => i.key !== key));
@@ -119,10 +126,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
       closeCart: () => setIsOpen(false),
       addItem,
       removeItem,
+      removeItemsByVariantIds,
       updateQuantity,
       clearCart,
     };
-  }, [items, isOpen, addItem, removeItem, updateQuantity, clearCart]);
+  }, [
+    items,
+    isOpen,
+    addItem,
+    removeItem,
+    removeItemsByVariantIds,
+    updateQuantity,
+    clearCart,
+  ]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

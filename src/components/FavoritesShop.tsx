@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import {
+  genderCollectionHandle,
   getFavoritesForGender,
   pickFavoriteImage,
   type FavoriteTile,
@@ -24,10 +25,16 @@ export function FavoritesShop({
       </h1>
 
       <div className="mt-6 flex gap-2">
-        <GenderPill href="/shop?collection=women" active={gender === "women"}>
+        <GenderPill
+          href={`/shop?collection=${genderCollectionHandle("women")}`}
+          active={gender === "women"}
+        >
           Women
         </GenderPill>
-        <GenderPill href="/shop?collection=men" active={gender === "men"}>
+        <GenderPill
+          href={`/shop?collection=${genderCollectionHandle("men")}`}
+          active={gender === "men"}
+        >
           Men
         </GenderPill>
       </div>
@@ -80,7 +87,7 @@ function FavoriteCard({
 }) {
   return (
     <Link
-      href={`/shop?collection=${gender}&type=${tile.slug}`}
+      href={`/shop?collection=${genderCollectionHandle(gender)}&type=${tile.slug}`}
       className="group block"
     >
       <div className="relative aspect-[3/4] overflow-hidden bg-white p-4">

@@ -5,6 +5,8 @@ import { ProductForm } from "@/components/ProductForm";
 import { ProductGrid } from "@/components/ProductGrid";
 import { getProductByHandle, getProducts } from "@/lib/shopify/client";
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({
   params,
 }: {

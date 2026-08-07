@@ -5,14 +5,23 @@ export function Hero() {
   return (
     <section className="relative h-[100svh] min-h-[640px] w-full overflow-hidden bg-black">
       <Image
-        src="/hero.png"
+        src="/images/hero-mobile.png"
         alt="Ludis Aqtive performance apparel"
         fill
         priority
-        className="object-cover object-center animate-fade-in"
+        className="object-cover object-[center_35%] animate-fade-in md:hidden"
         sizes="100vw"
       />
-      <div className="absolute inset-0 bg-black/35" />
+      <Image
+        src="/images/hero.png"
+        alt="Ludis Aqtive performance apparel"
+        fill
+        priority
+        className="hidden object-cover object-center animate-fade-in md:block"
+        sizes="100vw"
+      />
+      <div className="absolute inset-0 bg-black/30 md:bg-black/35" />
+      <div className="absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t from-black/70 via-black/25 to-transparent md:h-[45%] md:from-black/55" />
 
       <div className="relative mx-auto flex h-full max-w-[1440px] flex-col justify-end px-4 pb-10 pt-24 sm:px-6 sm:pb-14 lg:px-10 lg:pb-16">
         <div className="max-w-xl">
@@ -24,13 +33,13 @@ export function Hero() {
           </p>
           <div className="animate-fade-up delay-2 mt-7 flex flex-wrap gap-3">
             <Link
-              href="/shop?collection=new"
+              href="/shop?collection=bestsellers"
               className="inline-flex h-11 items-center bg-white px-7 text-[12px] font-semibold tracking-wide text-black transition-opacity hover:opacity-90"
             >
               Bestsellers
             </Link>
             <Link
-              href="/shop?collection=women"
+              href="/shop?collection=shop-women"
               className="inline-flex h-11 items-center border border-white px-7 text-[12px] font-semibold tracking-wide text-white transition-colors hover:bg-white hover:text-black"
             >
               Shop Women

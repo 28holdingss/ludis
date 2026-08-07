@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { ProductGrid } from "@/components/ProductGrid";
-import { FavoritesShop } from "@/components/FavoritesShop";
 import {
   getCollectionBySlug,
   matchCollection,
   COLLECTIONS,
 } from "@/components/CollectionGrid";
 import {
-  getFavoritesForGender,
+  genderCollectionHandle,
+  resolveCollectionHandle,
   WOMEN_FAVORITES,
   MEN_FAVORITES,
 } from "@/lib/favorites";
@@ -19,9 +19,9 @@ import {
 
 const FILTERS = [
   { handle: "all", label: "All" },
-  { handle: "women", label: "Women" },
-  { handle: "men", label: "Men" },
-  { handle: "new", label: "New" },
+  { handle: "shop-women", label: "Women" },
+  { handle: "shop-men", label: "Men" },
+  { handle: "new-drops", label: "New" },
 ];
 
 export const metadata = {
@@ -44,33 +44,22 @@ export default async function ShopPage({
   searchParams: Promise<{ collection?: string; type?: string }>;
 }) {
   const params = await searchParams;
-  const handle = params.collection || "all";
+  const handle = resolveCollectionHandle(params.collection || "all");
   const typeSlug = params.type;
   const typeCollection = resolveType(typeSlug);
-  const isGenderLanding =
-    (handle === "women" || handle === "men") && !typeSlug;
+  const isWomen = handle === "shop-women";
+  const isMen = handle === "shop-men";
 
   let products =
     handle === "all"
       ? await getProducts(100)
       : ((await getCollectionByHandle(handle))?.products ?? []);
 
-  if (products.length === 0 && handle !== "all") {
-    products = await getProducts(100);
-  }
-
   const catalog = await getProducts(100);
 
   if (typeCollection) {
-    products = products.filter((p) => matchCollection(p, typeCollection));
-  }
-
-  // Gender pages without Shopify collections still show catalog filtered loosely
-  if (
-    (handle === "women" || handle === "men") &&
-    products.length === 0
-  ) {
-    products = catalog;
+    const base = products.length > 0 ? products : catalog;
+    products = base.filter((p) => matchCollection(p, typeCollection));
   }
 
   const shopifyCollection =
@@ -81,54 +70,27 @@ export default async function ShopPage({
   const title =
     typeCollection?.label ||
     shopifyCollection?.title ||
-    (handle === "women" ? "Women" : handle === "men" ? "Men" : "Shop All");
+    (isWomen ? "Shop Women" : isMen ? "Shop Men" : "Shop All");
 
   const live = isShopifyConfigured();
-  const gender = handle === "men" ? "men" : "women";
-
-  if (isGenderLanding) {
-    const favorites = getFavoritesForGender(gender);
-    const preview = catalog
-      .filter((p) =>
-        favorites.some((tile) => matchCollection(p, tile)),
-      )
-      .slice(0, 8);
-
-    return (
-      <div className="pt-20 pb-16">
-        <FavoritesShop gender={gender} products={catalog} />
-        {preview.length > 0 && (
-          <div className="mt-6">
-            <ProductGrid
-              products={preview}
-              title="Popular Now"
-              subtitle={`Top picks in ${gender}.`}
-              href={`/shop?collection=${gender}&type=${favorites[0].slug}`}
-              linkLabel="Shop more"
-            />
-          </div>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div className="pt-20">
       <div className="mx-auto max-w-[1440px] px-4 pt-10 sm:px-6 lg:px-10">
-        {(handle === "women" || handle === "men") && (
+        {(isWomen || isMen) && (
           <div className="mb-6 flex gap-2">
             <Link
-              href="/shop?collection=women"
+              href={`/shop?collection=${genderCollectionHandle("women")}`}
               className={`rounded-full px-6 py-2.5 text-[12px] font-semibold tracking-[0.14em] uppercase ${
-                handle === "women" ? "bg-fg text-bg" : "bg-bg-elevated text-fg"
+                isWomen ? "bg-fg text-bg" : "bg-bg-elevated text-fg"
               }`}
             >
               Women
             </Link>
             <Link
-              href="/shop?collection=men"
+              href={`/shop?collection=${genderCollectionHandle("men")}`}
               className={`rounded-full px-6 py-2.5 text-[12px] font-semibold tracking-[0.14em] uppercase ${
-                handle === "men" ? "bg-fg text-bg" : "bg-bg-elevated text-fg"
+                isMen ? "bg-fg text-bg" : "bg-bg-elevated text-fg"
               }`}
             >
               Men
@@ -155,7 +117,7 @@ export default async function ShopPage({
           </p>
         )}
 
-        {handle !== "women" && handle !== "men" && (
+        {!isWomen && !isMen && (
           <div className="mt-8 flex flex-wrap gap-2 border-b border-border pb-6">
             {FILTERS.map((f) => {
               const active = !typeSlug && handle === f.handle;

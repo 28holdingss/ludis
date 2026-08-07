@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { Product, ProductVariant } from "@/lib/shopify/types";
 import { useCart } from "@/context/CartContext";
 import { formatMoney } from "@/lib/format";
+import { ProductDetails } from "@/components/ProductDetails";
 
 function findVariant(
   variants: ProductVariant[],
@@ -179,9 +180,7 @@ export function ProductForm({ product }: { product: Product }) {
       </button>
 
       {product.description && (
-        <p className="mt-8 text-sm leading-relaxed text-fg-muted">
-          {product.description}
-        </p>
+        <ProductDetails description={product.description} />
       )}
     </div>
   );

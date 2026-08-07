@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
+import { CheckoutButton } from "@/components/CheckoutButton";
 import { formatMoney } from "@/lib/format";
 
 export function CartDrawer() {
@@ -47,7 +48,7 @@ export function CartDrawer() {
               <Link
                 href="/shop"
                 onClick={closeCart}
-                className="bg-accent px-6 py-3 text-[11px] font-bold tracking-[0.2em] uppercase text-accent-ink"
+                className="bg-fg px-6 py-3 text-[11px] font-bold tracking-[0.2em] uppercase text-bg"
               >
                 Shop Now
               </Link>
@@ -71,7 +72,7 @@ export function CartDrawer() {
                     <Link
                       href={`/shop/${item.product.handle}`}
                       onClick={closeCart}
-                      className="text-sm font-medium hover:text-accent"
+                      className="text-sm font-medium hover:underline"
                     >
                       {item.product.title}
                     </Link>
@@ -126,19 +127,19 @@ export function CartDrawer() {
         </div>
 
         {items.length > 0 && (
-          <div className="border-t border-border px-5 py-5 space-y-4">
+          <div className="border-t border-border px-5 py-5 space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="text-fg-muted">Subtotal</span>
               <span className="font-medium">{formatMoney(subtotal)}</span>
             </div>
-            <p className="text-xs text-fg-muted">
-              Checkout connects to Shopify once your Storefront API token is
-              set. Until then, bag items are saved locally.
-            </p>
+            <CheckoutButton
+              label="Checkout"
+              className="flex h-12 w-full items-center justify-center bg-fg text-[11px] font-bold tracking-[0.2em] uppercase text-bg disabled:opacity-50"
+            />
             <Link
               href="/cart"
               onClick={closeCart}
-              className="flex h-12 w-full items-center justify-center bg-accent text-[11px] font-bold tracking-[0.2em] uppercase text-accent-ink"
+              className="flex h-11 w-full items-center justify-center border border-border text-[11px] font-bold tracking-[0.2em] uppercase text-fg hover:border-fg"
             >
               View Bag
             </Link>
