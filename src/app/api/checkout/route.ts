@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import {
-  buildCartPermalink,
   createCheckoutCart,
   isShopifyConfigured,
 } from "@/lib/shopify/client";
@@ -51,8 +50,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // Storefront cart with checkout country (default US). Without this, Ghana IP
-  // markets mark Tapstitch variants sold out even when Online Store (US) works.
   const result = await createCheckoutCart(lines);
   const usable =
     result.cart?.checkoutUrl &&
@@ -65,15 +62,7 @@ export async function POST(request: Request) {
       cartId: result.cart.id,
       method: "storefront-cart",
       invalidMerchandiseIds: result.invalidMerchandiseIds,
-    });
-  }
-
-  const permalink = buildCartPermalink(lines);
-  if (permalink) {
-    return NextResponse.json({
-      checkoutUrl: permalink,
-      method: "permalink",
-      invalidMerchandiseIds: result.invalidMerchandiseIds,
+      removedCount: result.invalidMerchandiseIds.length,
     });
   }
 
@@ -83,9 +72,9 @@ export async function POST(request: Request) {
   return NextResponse.json(
     {
       error: stale
-        ? "Some items in your bag are no longer available. They were removed — add products again and checkout."
+        ? "None of the items in your bag can be checked out right now. Remove them, or in Shopify open each product → Inventory → enable Continue selling when out of stock (Tapstitch / ODMPOD)."
         : shopifyMessage ||
-          "Could not start checkout. In Shopify, enable shipping/inventory for your market (Tapstitch ODMPOD), or set NEXT_PUBLIC_SHOPIFY_CHECKOUT_COUNTRY=US.",
+          "Could not start checkout. Try again in a moment.",
       invalidMerchandiseIds: result.invalidMerchandiseIds,
       userErrors: result.userErrors,
     },

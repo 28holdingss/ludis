@@ -36,6 +36,7 @@ export function CheckoutButton({
         checkoutUrl?: string;
         error?: string;
         invalidMerchandiseIds?: string[];
+        removedCount?: number;
       };
 
       if (data.invalidMerchandiseIds?.length) {
@@ -43,8 +44,11 @@ export function CheckoutButton({
       }
 
       if (!res.ok || !data.checkoutUrl) {
-        // If everything was invalid, clear leftovers that can't checkout
-        if (!data.checkoutUrl && items.length > 0 && data.invalidMerchandiseIds?.length === items.length) {
+        if (
+          !data.checkoutUrl &&
+          items.length > 0 &&
+          data.invalidMerchandiseIds?.length === items.length
+        ) {
           clearCart();
         }
         setError(data.error || "Checkout failed. Try again.");

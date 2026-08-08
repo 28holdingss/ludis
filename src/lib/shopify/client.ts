@@ -50,6 +50,32 @@ type ShopifyProductNode = {
   };
 };
 
+function mergeOptionsFromVariants(node: ShopifyProductNode) {
+  const options = (node.options ?? []).map((option) => ({
+    name: option.name,
+    values: [...option.values],
+  }));
+  const byName = new Map(options.map((option) => [option.name, option]));
+
+  // Prefer variant-selected values so newly synced Tapstitch colors show up
+  // even if product.options.values is briefly stale.
+  for (const edge of node.variants.edges) {
+    for (const selected of edge.node.selectedOptions) {
+      let option = byName.get(selected.name);
+      if (!option) {
+        option = { name: selected.name, values: [] };
+        byName.set(selected.name, option);
+        options.push(option);
+      }
+      if (!option.values.includes(selected.value)) {
+        option.values.push(selected.value);
+      }
+    }
+  }
+
+  return options;
+}
+
 function normalizeProduct(node: ShopifyProductNode): Product {
   return {
     id: node.id,
@@ -62,7 +88,7 @@ function normalizeProduct(node: ShopifyProductNode): Product {
     featuredImage: node.featuredImage,
     images: node.images?.edges.map((e) => e.node) ?? [],
     priceRange: node.priceRange,
-    options: node.options ?? [],
+    options: mergeOptionsFromVariants(node),
     variants: node.variants.edges.map((e) => e.node),
   };
 }
@@ -104,13 +130,101 @@ async function storefrontFetch<T>(
   return json.data as T;
 }
 
+function colorCount(product: Product) {
+  return (
+    product.options.find((o) => o.name.toLowerCase() === "color")?.values
+      .length ?? 0
+  );
+}
+
+function republishScore(handle: string) {
+  const match = handle.match(/-(\d+)$/);
+  return match ? Number(match[1]) : 0;
+}
+
+function imageKey(url: string) {
+  const file = (url.split("/").pop() ?? url).split("?")[0];
+  // Shopify copy suffixes: name_uuid.ext → name.ext
+  return file.replace(
+    /_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?=\.)/i,
+    "",
+  );
+}
+
+/** Keep lifestyle/model shots from the older listing when Tapstitch republishes. */
+function mergeProductMedia(primary: Product, secondary: Product): Product {
+  const seen = new Set<string>();
+  const images: NonNullable<Product["featuredImage"]>[] = [];
+
+  for (const img of [
+    secondary.featuredImage,
+    ...secondary.images,
+    primary.featuredImage,
+    ...primary.images,
+  ]) {
+    if (!img?.url) continue;
+    const key = imageKey(img.url);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    images.push(img);
+  }
+
+  return {
+    ...primary,
+    featuredImage: images[0] ?? primary.featuredImage,
+    images,
+  };
+}
+
+/** Tapstitch often republishes as handle-1 when colors are added. Prefer the richer listing. */
+export function preferRicherProduct(a: Product, b: Product): Product {
+  let primary = a;
+  let secondary = b;
+
+  if (colorCount(b) !== colorCount(a)) {
+    primary = colorCount(b) > colorCount(a) ? b : a;
+    secondary = primary === a ? b : a;
+  } else if (b.variants.length !== a.variants.length) {
+    primary = b.variants.length > a.variants.length ? b : a;
+    secondary = primary === a ? b : a;
+  } else if (republishScore(b.handle) >= republishScore(a.handle)) {
+    primary = b;
+    secondary = a;
+  }
+
+  return mergeProductMedia(primary, secondary);
+}
+
+export function dedupeProductsByTitle(products: Product[]): Product[] {
+  const map = new Map<string, Product>();
+  for (const product of products) {
+    const key = product.title.trim().toLowerCase();
+    const existing = map.get(key);
+    map.set(key, existing ? preferRicherProduct(existing, product) : product);
+  }
+  return [...map.values()];
+}
+
+async function fetchProductByHandle(
+  handle: string,
+): Promise<Product | null> {
+  const data = await storefrontFetch<{ product: ShopifyProductNode | null }>(
+    PRODUCT_BY_HANDLE_QUERY,
+    { handle },
+    { cache: "no-store" },
+  );
+  return data?.product ? normalizeProduct(data.product) : null;
+}
+
 export async function getProducts(first = 100): Promise<Product[]> {
   const data = await storefrontFetch<{
     products: { edges: { node: ShopifyProductNode }[] };
   }>(PRODUCTS_QUERY, { first });
 
   if (!data) return MOCK_PRODUCTS;
-  return data.products.edges.map((e) => normalizeProduct(e.node));
+  return dedupeProductsByTitle(
+    data.products.edges.map((e) => normalizeProduct(e.node)),
+  );
 }
 
 export async function getProductByHandle(
@@ -118,15 +232,31 @@ export async function getProductByHandle(
 ): Promise<Product | null> {
   // Always fresh — cached product payloads keep deleted Shopify images around
   // on client navigations until a hard refresh.
-  const data = await storefrontFetch<{ product: ShopifyProductNode | null }>(
-    PRODUCT_BY_HANDLE_QUERY,
-    { handle },
-    { cache: "no-store" },
+  const product = await fetchProductByHandle(handle);
+  if (!product) {
+    return MOCK_PRODUCTS.find((p) => p.handle === handle) ?? null;
+  }
+
+  // Prefer Tapstitch republish siblings (e.g. product-1 with new colors).
+  const baseHandle = handle.replace(/-\d+$/, "");
+  const candidates: Product[] = [product];
+  const handlesToCheck = new Set<string>();
+  if (baseHandle !== handle) handlesToCheck.add(baseHandle);
+  for (let i = 1; i <= 5; i += 1) {
+    const alt = `${baseHandle}-${i}`;
+    if (alt !== handle) handlesToCheck.add(alt);
+  }
+
+  await Promise.all(
+    [...handlesToCheck].map(async (altHandle) => {
+      const alt = await fetchProductByHandle(altHandle);
+      if (alt && alt.title.trim().toLowerCase() === product.title.trim().toLowerCase()) {
+        candidates.push(alt);
+      }
+    }),
   );
 
-  if (data?.product) return normalizeProduct(data.product);
-
-  return MOCK_PRODUCTS.find((p) => p.handle === handle) ?? null;
+  return candidates.reduce(preferRicherProduct);
 }
 
 export async function getCollectionByHandle(
@@ -148,15 +278,27 @@ export async function getCollectionByHandle(
   }>(COLLECTION_BY_HANDLE_QUERY, { handle, first: 100 });
 
   if (data?.collection) {
+    // Swap Tapstitch republishes (title duplicates) for the richer color listing.
+    const catalog = await getProducts(100);
+    const byTitle = new Map(
+      catalog.map((product) => [product.title.trim().toLowerCase(), product]),
+    );
+    const products = dedupeProductsByTitle(
+      data.collection.products.edges.map((edge) => {
+        const product = normalizeProduct(edge.node);
+        return (
+          byTitle.get(product.title.trim().toLowerCase()) ?? product
+        );
+      }),
+    );
+
     return {
       id: data.collection.id,
       handle: data.collection.handle,
       title: data.collection.title,
       description: data.collection.description,
       image: data.collection.image,
-      products: data.collection.products.edges.map((e) =>
-        normalizeProduct(e.node),
-      ),
+      products,
     };
   }
 
@@ -374,42 +516,87 @@ export async function createCheckoutCart(
 
     const uniqueInvalid = [...new Set(invalidMerchandiseIds)];
 
+    // Headless/Tapstitch: some variants land in the cart at qty 0 (unsellable
+    // for this channel) even though availableForSale is true on the product.
+    const unsellableIds =
+      data.cartCreate.cart?.lines.edges
+        .filter((edge) => edge.node.quantity <= 0)
+        .map((edge) => edge.node.merchandise.id) ?? [];
+
     if (data.cartCreate.cart?.checkoutUrl) {
       return {
         cart: normalizeCart(data.cartCreate.cart),
         userErrors,
-        invalidMerchandiseIds: uniqueInvalid,
+        invalidMerchandiseIds: [
+          ...new Set([...uniqueInvalid, ...unsellableIds]),
+        ],
       };
     }
 
     return {
       cart: null,
       userErrors,
-      invalidMerchandiseIds: uniqueInvalid,
+      invalidMerchandiseIds: [
+        ...new Set([...uniqueInvalid, ...unsellableIds]),
+      ],
     };
   }
 
   let result = await attempt(validLines);
+  let removedIds = [...result.invalidMerchandiseIds];
 
-  if (!result.cart && result.invalidMerchandiseIds.length > 0) {
+  // Retry without unsellable / missing variants so the rest can still checkout.
+  while (
+    result.invalidMerchandiseIds.length > 0 &&
+    result.cart?.totalQuantity === 0
+  ) {
     const retryLines = validLines.filter(
-      (line) => !result.invalidMerchandiseIds.includes(line.merchandiseId),
+      (line) => !removedIds.includes(line.merchandiseId),
+    );
+    if (retryLines.length === 0) break;
+    const retry = await attempt(retryLines);
+    removedIds = [
+      ...new Set([...removedIds, ...retry.invalidMerchandiseIds]),
+    ];
+    result = {
+      ...retry,
+      invalidMerchandiseIds: removedIds,
+    };
+    if (retry.cart && retry.cart.totalQuantity > 0) break;
+  }
+
+  // Partial cart: drop zero-qty lines by recreating with only sellable ones.
+  if (
+    result.cart &&
+    result.cart.totalQuantity > 0 &&
+    result.cart.lines.some((line) => line.quantity <= 0)
+  ) {
+    const sellableIds = new Set(
+      result.cart.lines
+        .filter((line) => line.quantity > 0)
+        .map((line) => line.merchandise.id),
+    );
+    const unsellable = validLines
+      .filter((line) => !sellableIds.has(line.merchandiseId))
+      .map((line) => line.merchandiseId);
+    const retryLines = validLines.filter((line) =>
+      sellableIds.has(line.merchandiseId),
     );
     if (retryLines.length > 0) {
       const retry = await attempt(retryLines);
       return {
         ...retry,
         invalidMerchandiseIds: [
-          ...new Set([
-            ...result.invalidMerchandiseIds,
-            ...retry.invalidMerchandiseIds,
-          ]),
+          ...new Set([...removedIds, ...unsellable, ...retry.invalidMerchandiseIds]),
         ],
       };
     }
   }
 
-  return result;
+  return {
+    ...result,
+    invalidMerchandiseIds: removedIds,
+  };
 }
 
 /** Online Store cart permalink — pin country so IP market (e.g. GH) doesn’t zero stock. */

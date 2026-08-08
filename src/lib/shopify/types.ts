@@ -17,6 +17,7 @@ export type ProductVariant = {
   selectedOptions: { name: string; value: string }[];
   price: Money;
   compareAtPrice?: Money | null;
+  image?: ProductImage | null;
 };
 
 export type Product = {

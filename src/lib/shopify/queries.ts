@@ -83,7 +83,7 @@ export const PRODUCT_BY_HANDLE_QUERY = `
         width
         height
       }
-      images(first: 8) {
+      images(first: 20) {
         edges {
           node {
             url
@@ -107,7 +107,7 @@ export const PRODUCT_BY_HANDLE_QUERY = `
         name
         values
       }
-      variants(first: 50) {
+      variants(first: 100) {
         edges {
           node {
             id
@@ -116,6 +116,12 @@ export const PRODUCT_BY_HANDLE_QUERY = `
             selectedOptions {
               name
               value
+            }
+            image {
+              url
+              altText
+              width
+              height
             }
             price {
               amount

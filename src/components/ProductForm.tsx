@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { Product, ProductVariant } from "@/lib/shopify/types";
 import { useCart } from "@/context/CartContext";
 import { formatMoney } from "@/lib/format";
+import { swatchColor, swatchImageForColor } from "@/lib/color-swatch";
 import { ProductDetails } from "@/components/ProductDetails";
 
 function findVariant(
@@ -17,7 +18,13 @@ function findVariant(
   );
 }
 
-export function ProductForm({ product }: { product: Product }) {
+export function ProductForm({
+  product,
+  onColorChange,
+}: {
+  product: Product;
+  onColorChange?: (color: string) => void;
+}) {
   const { addItem } = useCart();
 
   const initialSelected = useMemo(() => {
@@ -41,6 +48,9 @@ export function ProductForm({ product }: { product: Product }) {
 
   function setOption(name: string, value: string) {
     setSelected((prev) => ({ ...prev, [name]: value }));
+    if (name.toLowerCase() === "color") {
+      onColorChange?.(value);
+    }
   }
 
   function handleAdd() {
@@ -65,15 +75,6 @@ export function ProductForm({ product }: { product: Product }) {
           const isColor = option.name.toLowerCase() === "color";
           const current = selected[option.name];
 
-          if (isColor && option.values.length <= 1) {
-            return (
-              <div key={option.name} className="text-sm">
-                <span className="text-fg-muted">{option.name}</span>{" "}
-                <span className="font-medium text-fg">{current}</span>
-              </div>
-            );
-          }
-
           if (isColor) {
             return (
               <div key={option.name}>
@@ -81,22 +82,42 @@ export function ProductForm({ product }: { product: Product }) {
                   <span className="text-fg-muted">{option.name}</span>{" "}
                   <span className="font-medium">{current}</span>
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2.5">
                   {option.values.map((value) => {
                     const active = current === value;
+                    const colorAvailable = product.variants.some(
+                      (variant) =>
+                        variant.availableForSale &&
+                        variant.selectedOptions.some(
+                          (o) => o.name === option.name && o.value === value,
+                        ),
+                    );
+                    // Prefer Tapstitch variant photo so swatches match the garment.
+                    const photo = swatchImageForColor(product, value);
+                    const fill = swatchColor(value);
+
                     return (
                       <button
                         key={value}
                         type="button"
+                        disabled={!colorAvailable}
                         onClick={() => setOption(option.name, value)}
-                        className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                        title={value}
+                        aria-label={value}
+                        aria-pressed={active}
+                        className={`relative h-12 w-12 overflow-hidden rounded-full bg-cover bg-center transition-transform disabled:opacity-35 ${
                           active
-                            ? "border-fg bg-fg text-bg"
-                            : "border-border-strong bg-bg text-fg hover:border-fg"
+                            ? "scale-105 ring-2 ring-fg ring-offset-2 ring-offset-bg"
+                            : "hover:scale-105"
                         }`}
-                      >
-                        {value}
-                      </button>
+                        style={{
+                          backgroundColor: fill,
+                          backgroundImage: photo
+                            ? `url(${photo.url})`
+                            : undefined,
+                          boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.12)",
+                        }}
+                      />
                     );
                   })}
                 </div>

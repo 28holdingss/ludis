@@ -1,7 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ProductGallery } from "@/components/ProductGallery";
-import { ProductForm } from "@/components/ProductForm";
+import { ProductView } from "@/components/ProductView";
 import { ProductGrid } from "@/components/ProductGrid";
 import { getProductByHandle, getProducts } from "@/lib/shopify/client";
 
@@ -29,6 +28,11 @@ export default async function ProductPage({
   const product = await getProductByHandle(handle);
   if (!product) notFound();
 
+  // Tapstitch republishes (e.g. …-1 with new colors) — use the richer URL.
+  if (product.handle !== handle) {
+    redirect(`/shop/${product.handle}`);
+  }
+
   const related = (await getProducts())
     .filter((p) => p.handle !== product.handle)
     .slice(0, 4);
@@ -44,10 +48,7 @@ export default async function ProductPage({
           <span className="text-fg">{product.title}</span>
         </nav>
 
-        <div className="grid items-start gap-8 lg:grid-cols-2 lg:gap-10">
-          <ProductGallery product={product} />
-          <ProductForm product={product} />
-        </div>
+        <ProductView product={product} />
       </div>
 
       {related.length > 0 && (
