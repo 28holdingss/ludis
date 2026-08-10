@@ -14,7 +14,7 @@ export function ProductGallery({
   const images: ProductImage[] = galleryForColor(product, selectedColor);
 
   if (images.length === 0) {
-    return <div className="h-64 max-w-sm bg-white" />;
+    return <div className="h-64 max-w-sm bg-bg-studio" />;
   }
 
   return (
@@ -24,7 +24,7 @@ export function ProductGallery({
       }`}
     >
       {images.map((img, i) => (
-        <div key={img.url} className="overflow-hidden bg-white">
+        <div key={img.url} className="overflow-hidden bg-bg-studio">
           <Image
             src={img.url}
             alt={
@@ -36,7 +36,7 @@ export function ProductGallery({
             width={img.width || 800}
             height={img.height || 1000}
             priority={i < 2}
-            className="h-auto w-full object-contain animate-fade-in"
+            className="h-auto w-full object-contain mix-blend-multiply animate-fade-in"
             sizes="(max-width: 768px) 45vw, 240px"
           />
         </div>

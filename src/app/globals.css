@@ -4,6 +4,7 @@
   --bg: #ffffff;
   --bg-elevated: #f6f6f6;
   --bg-muted: #ebebeb;
+  --bg-studio: #f3f1ee;
   --fg: #0a0a0a;
   --fg-muted: #6b6b6b;
   --accent: #0a0a0a;
@@ -16,6 +17,7 @@
   --color-bg: var(--bg);
   --color-bg-elevated: var(--bg-elevated);
   --color-bg-muted: var(--bg-muted);
+  --color-bg-studio: var(--bg-studio);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
   --color-accent: var(--accent);

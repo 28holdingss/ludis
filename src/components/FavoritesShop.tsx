@@ -90,13 +90,13 @@ function FavoriteCard({
       href={`/shop?collection=${genderCollectionHandle(gender)}&type=${tile.slug}`}
       className="group block"
     >
-      <div className="relative aspect-[3/4] overflow-hidden bg-white p-4">
+      <div className="relative aspect-[3/4] overflow-hidden bg-bg-studio p-3 sm:p-4">
         <div className="relative h-full w-full">
           <Image
             src={image}
             alt={tile.label}
             fill
-            className="object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+            className="object-contain mix-blend-multiply transition-transform duration-500 group-hover:scale-[1.02]"
             sizes="(max-width: 1024px) 50vw, 25vw"
           />
         </div>
