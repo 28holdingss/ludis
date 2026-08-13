@@ -186,8 +186,8 @@ export const MOCK_COLLECTIONS: Collection[] = [
   },
   {
     id: "gid://shopify/Collection/mock-women",
-    handle: "women",
-    title: "Women",
+    handle: "shop-women",
+    title: "Shop Women",
     description: "Performance pieces engineered for her.",
     image: {
       url: img("photo-1518611012118-696072aa579a", 1600, 2000),
@@ -197,8 +197,8 @@ export const MOCK_COLLECTIONS: Collection[] = [
   },
   {
     id: "gid://shopify/Collection/mock-men",
-    handle: "men",
-    title: "Men",
+    handle: "shop-men",
+    title: "Shop Men",
     description: "Training kit built to push harder.",
     image: {
       url: img("photo-1571019614242-c5c5dee9f50b", 1600, 2000),
@@ -208,7 +208,7 @@ export const MOCK_COLLECTIONS: Collection[] = [
   },
   {
     id: "gid://shopify/Collection/mock-new",
-    handle: "new",
+    handle: "new-drops",
     title: "New Drops",
     description: "Fresh from the floor.",
     image: {

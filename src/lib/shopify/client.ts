@@ -266,6 +266,8 @@ export async function getCollectionByHandle(
     return MOCK_COLLECTIONS.find((c) => c.handle === "all") ?? null;
   }
 
+  // Always fresh — newly filled Shopify collections (e.g. Shop Men) should
+  // not stick on a cached empty response after products are added in admin.
   const data = await storefrontFetch<{
     collection: {
       id: string;
@@ -275,7 +277,7 @@ export async function getCollectionByHandle(
       image: Collection["image"];
       products: { edges: { node: ShopifyProductNode }[] };
     } | null;
-  }>(COLLECTION_BY_HANDLE_QUERY, { handle, first: 100 });
+  }>(COLLECTION_BY_HANDLE_QUERY, { handle, first: 100 }, { cache: "no-store" });
 
   if (data?.collection) {
     // Swap Tapstitch republishes (title duplicates) for the richer color listing.
